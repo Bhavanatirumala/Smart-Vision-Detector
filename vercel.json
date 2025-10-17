@@ -2,6 +2,9 @@
   "functions": {
     "api/index.py": {
       "maxDuration": 10
+    },
+    "api/hello.py": {
+      "maxDuration": 10
     }
   }
 }
