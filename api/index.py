@@ -1,7 +1,3 @@
-"""
-Ultra-minimal Vercel function - guaranteed to work
-"""
-
 def handler(request):
     return {
         'statusCode': 200,
