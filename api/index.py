@@ -1,18 +1,16 @@
 """
-Smart Vision Detector - Vercel Serverless Function
-Complete FastAPI app for Vercel deployment
+Smart Vision Detector - Vercel Compatible Version
+Optimized for Vercel serverless deployment
 """
 
 from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-import cv2
 import numpy as np
 from PIL import Image
 import io
 import json
 from datetime import datetime
-import sqlite3
 import random
 
 app = FastAPI(title="Smart Vision Detector", version="1.0.0")
@@ -26,62 +24,32 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-class SimpleDatabase:
-    def __init__(self):
-        self.conn = sqlite3.connect(":memory:")
-        self.init_database()
-    
-    def init_database(self):
-        cursor = self.conn.cursor()
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS detection_history (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                filename TEXT,
-                detection_type TEXT,
-                result TEXT,
-                confidence REAL,
-                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
-        self.conn.commit()
-    
-    def add_detection(self, filename, detection_type, result, confidence):
-        cursor = self.conn.cursor()
-        cursor.execute("""
-            INSERT INTO detection_history (filename, detection_type, result, confidence)
-            VALUES (?, ?, ?, ?)
-        """, (filename, detection_type, result, confidence))
-        self.conn.commit()
-    
-    def get_detection_history(self, limit=50):
-        cursor = self.conn.cursor()
-        cursor.execute("""
-            SELECT id, filename, detection_type, result, confidence, timestamp
-            FROM detection_history
-            ORDER BY timestamp DESC
-            LIMIT ?
-        """, (limit,))
-        return cursor.fetchall()
+# Simple in-memory storage for demo
+detection_history = []
 
 class SimpleFaceDetector:
     def __init__(self):
-        try:
-            self.face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
-        except:
-            self.face_cascade = None
+        # Simplified face detection without OpenCV for Vercel compatibility
+        self.face_cascade = None
     
     def detect_faces(self, image):
-        if self.face_cascade is None:
-            return []
+        # Simulate face detection for demo purposes
+        # In a real deployment, you'd use OpenCV or a cloud API
+        height, width = image.shape[:2]
         
-        gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
-        faces = self.face_cascade.detectMultiScale(
-            gray,
-            scaleFactor=1.1,
-            minNeighbors=5,
-            minSize=(30, 30)
-        )
-        return faces
+        # Simulate face detection based on image characteristics
+        if width > 200 and height > 200:
+            # Simulate finding 1-2 faces in larger images
+            num_faces = random.randint(0, 2)
+            faces = []
+            for i in range(num_faces):
+                x = random.randint(0, width//2)
+                y = random.randint(0, height//2)
+                w = random.randint(50, 150)
+                h = random.randint(50, 150)
+                faces.append([x, y, w, h])
+            return faces
+        return []
 
 class SimpleObjectDetector:
     def __init__(self):
@@ -91,7 +59,10 @@ class SimpleObjectDetector:
             'Airplane', 'Bird', 'Horse', 'Cow', 'Elephant', 'Bear', 'Zebra',
             'Giraffe', 'Backpack', 'Umbrella', 'Handbag', 'Tie', 'Suitcase',
             'Frisbee', 'Skis', 'Snowboard', 'Sports Ball', 'Kite', 'Baseball Bat',
-            'Baseball Glove', 'Skateboard', 'Surfboard', 'Tennis Racket'
+            'Baseball Glove', 'Skateboard', 'Surfboard', 'Tennis Racket',
+            'Camera', 'Watch', 'Sunglasses', 'Hat', 'Shoe', 'Shirt', 'Pants',
+            'Dress', 'Coat', 'Gloves', 'Scarf', 'Belt', 'Necklace', 'Ring',
+            'Earrings', 'Wallet', 'Key', 'Pen', 'Pencil', 'Notebook', 'Calculator'
         ]
     
     def predict_object(self, image):
@@ -107,7 +78,6 @@ class SimpleObjectDetector:
         return predictions
 
 # Initialize components
-db = SimpleDatabase()
 face_detector = SimpleFaceDetector()
 object_detector = SimpleObjectDetector()
 
@@ -121,20 +91,70 @@ async def read_root():
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <style>
-            body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; }
-            .container { max-width: 1200px; margin: 0 auto; background: white; border-radius: 15px; padding: 30px; box-shadow: 0 8px 32px rgba(0,0,0,0.1); }
+            body { 
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+                margin: 0; padding: 20px; 
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                min-height: 100vh; 
+            }
+            .container { 
+                max-width: 1200px; margin: 0 auto; 
+                background: white; border-radius: 15px; 
+                padding: 30px; box-shadow: 0 8px 32px rgba(0,0,0,0.1); 
+            }
             .header { text-align: center; margin-bottom: 30px; }
-            .header h1 { font-size: 3rem; background: linear-gradient(90deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin: 0; }
-            .upload-area { border: 2px dashed #667eea; border-radius: 10px; padding: 40px; text-align: center; margin: 20px 0; background: #f8f9ff; }
-            .btn { background: linear-gradient(90deg, #667eea 0%, #764ba2 100%); color: white; border: none; padding: 12px 30px; border-radius: 25px; cursor: pointer; font-size: 16px; margin: 10px; }
-            .btn:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(0,0,0,0.2); }
-            .result-card { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 15px; margin: 20px 0; }
-            .face-card { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; padding: 20px; border-radius: 15px; margin: 20px 0; }
-            .object-card { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 20px; border-radius: 15px; margin: 20px 0; }
+            .header h1 { 
+                font-size: 3rem; 
+                background: linear-gradient(90deg, #667eea 0%, #764ba2 100%); 
+                -webkit-background-clip: text; -webkit-text-fill-color: transparent; 
+                margin: 0; 
+            }
+            .upload-area { 
+                border: 2px dashed #667eea; border-radius: 10px; 
+                padding: 40px; text-align: center; margin: 20px 0; 
+                background: #f8f9ff; 
+            }
+            .btn { 
+                background: linear-gradient(90deg, #667eea 0%, #764ba2 100%); 
+                color: white; border: none; padding: 12px 30px; 
+                border-radius: 25px; cursor: pointer; font-size: 16px; 
+                margin: 10px; transition: all 0.3s ease;
+            }
+            .btn:hover { 
+                transform: translateY(-2px); 
+                box-shadow: 0 8px 25px rgba(0,0,0,0.2); 
+            }
+            .result-card { 
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                color: white; padding: 20px; border-radius: 15px; margin: 20px 0; 
+            }
+            .face-card { 
+                background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); 
+                color: white; padding: 20px; border-radius: 15px; margin: 20px 0; 
+            }
+            .object-card { 
+                background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); 
+                color: white; padding: 20px; border-radius: 15px; margin: 20px 0; 
+            }
             .image-preview { max-width: 100%; border-radius: 10px; margin: 20px 0; }
             .loading { text-align: center; padding: 40px; }
-            .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin: 20px 0; }
-            .stat-card { background: white; padding: 20px; border-radius: 10px; text-align: center; box-shadow: 0 4px 16px rgba(0,0,0,0.1); }
+            .stats { 
+                display: grid; 
+                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); 
+                gap: 20px; margin: 20px 0; 
+            }
+            .stat-card { 
+                background: white; padding: 20px; border-radius: 10px; 
+                text-align: center; box-shadow: 0 4px 16px rgba(0,0,0,0.1); 
+            }
+            .demo-notice {
+                background: #fff3cd;
+                border: 1px solid #ffeaa7;
+                border-radius: 8px;
+                padding: 15px;
+                margin: 20px 0;
+                color: #856404;
+            }
         </style>
     </head>
     <body>
@@ -142,6 +162,11 @@ async def read_root():
             <div class="header">
                 <h1>🧠 Smart Vision Detector</h1>
                 <p>Advanced AI-powered vision detection for faces and objects</p>
+            </div>
+            
+            <div class="demo-notice">
+                <strong>🎯 Demo Mode:</strong> This is a simplified version optimized for Vercel deployment. 
+                Face and object detection uses simulated AI for demonstration purposes.
             </div>
             
             <div class="upload-area">
@@ -155,6 +180,7 @@ async def read_root():
             <div id="results"></div>
             <div id="loading" class="loading" style="display: none;">
                 <h3>🔍 Analyzing image...</h3>
+                <p>Processing with AI...</p>
             </div>
             
             <div class="stats">
@@ -309,8 +335,14 @@ async def analyze_image(file: UploadFile = File(...)):
                     'confidence': confidence
                 })
             
-            result_text = f"Detected {len(faces)} face(s)"
-            db.add_detection(file.filename, "Human Face", result_text, 0.85)
+            # Store detection
+            detection_history.append({
+                'filename': file.filename,
+                'type': 'Human Face',
+                'result': f"Detected {len(faces)} face(s)",
+                'confidence': 0.85,
+                'timestamp': datetime.now().isoformat()
+            })
             
             return {
                 'type': 'face',
@@ -322,8 +354,15 @@ async def analyze_image(file: UploadFile = File(...)):
             
             if predictions:
                 top_prediction = predictions[0]
-                result_text = f"Detected: {top_prediction['class']} ({top_prediction['confidence']:.1%})"
-                db.add_detection(file.filename, "Object", result_text, top_prediction['confidence'])
+                
+                # Store detection
+                detection_history.append({
+                    'filename': file.filename,
+                    'type': 'Object',
+                    'result': f"Detected: {top_prediction['class']}",
+                    'confidence': top_prediction['confidence'],
+                    'timestamp': datetime.now().isoformat()
+                })
                 
                 return {
                     'type': 'object',
@@ -339,10 +378,9 @@ async def analyze_image(file: UploadFile = File(...)):
 @app.get("/stats")
 async def get_stats():
     try:
-        history = db.get_detection_history(1000)
-        total = len(history)
-        face_count = sum(1 for h in history if h[2] == "Human Face")
-        object_count = sum(1 for h in history if h[2] == "Object")
+        total = len(detection_history)
+        face_count = sum(1 for h in detection_history if h['type'] == "Human Face")
+        object_count = sum(1 for h in detection_history if h['type'] == "Object")
         
         return {
             'total_detections': total,
